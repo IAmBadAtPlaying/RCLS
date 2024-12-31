@@ -26,9 +26,7 @@ public abstract class ArrayDataManager extends BasicDataManager {
 
     @Override
     public void stop() {
-        if (!running) return;
-        running = false;
-        doStop();
+        super.stop();
         currentArray = null;
     }
 

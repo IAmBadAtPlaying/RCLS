@@ -37,6 +37,8 @@ public class WindowsProcessHandler implements ProcessHandler {
         gameProcessNames.put(Game.RIOT_CLIENT, "Riot Client.exe");
     }
 
+    private boolean running = false;
+
     private final Starter starter;
     private       Path    riotClientServicesExecutablePath = null;
     private       Thread  rcsProcessThread                 = null;
@@ -362,5 +364,21 @@ public class WindowsProcessHandler implements ProcessHandler {
     @Override
     public void log(LogLevel level, Object o) {
         SimpleLogger.getInstance().log(level, this.getClass().getSimpleName() + ": " + o);
+    }
+
+    @Override
+    public void start() {
+        running = true;
+    }
+
+    @Override
+    public void stop() {
+        running = false;
+        Optional.ofNullable(rcsProcessThread).ifPresent(Thread::interrupt);
+    }
+
+    @Override
+    public boolean isRunning() {
+        return false;
     }
 }

@@ -32,16 +32,19 @@ public class RCConnector implements Managable, Loggable {
 
     private final Starter starter;
 
-    private boolean running = false;
+    private       boolean             running          = false;
     private final RCConnectionManager rcConnectionManager;
-    private final ProcessHandler processHandler;
-    private final RCClient rcClient;
-    private RCConnectionState connectionState = RCConnectionState.DISCONNECTED;
-    private SSLContext sslContextGlobal = null;
+    private final ProcessHandler      processHandler;
+    private final RCClient            rcClient;
+    private       RCConnectionState   connectionState  = RCConnectionState.DISCONNECTED;
+    private       SSLContext          sslContextGlobal = null;
 
-    private Integer port = null;
-    private String secret = null;
-    private String authToken = null;
+    private Integer port      = null;
+    private String  secret    = null;
+    private String  authToken = null;
+
+    private Integer testPort      = null;
+    private String  testSecret    = null;
 
     public RCConnector(Starter starter) {
         this.starter = starter;
@@ -57,24 +60,24 @@ public class RCConnector implements Managable, Loggable {
                     new X509TrustManager() {
                         @Override
                         public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
-                            if (chain != null && chain.length > 0) {
-                                String clientHost = chain[0].getSubjectX500Principal().getName();
-                                if (isLoopbackAddress(clientHost) || "CN=rclient".equals(clientHost)) {
-                                    return;
-                                }
-                            }
-                            throw new CertificateException("Untrusted client certificate");
+//                            if (chain != null && chain.length > 0) {
+//                                String clientHost = chain[0].getSubjectX500Principal().getName();
+//                                if (isLoopbackAddress(clientHost) || "CN=rclient".equals(clientHost)) {
+//                                    return;
+//                                }
+//                            }
+//                            throw new CertificateException("Untrusted client certificate");
                         }
 
                         @Override
                         public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
-                            if (chain != null && chain.length > 0) {
-                                String serverHost = chain[0].getSubjectX500Principal().getName();
-                                if (isLoopbackAddress(serverHost) || "CN=rclient".equals(serverHost)) {
-                                    return;
-                                }
-                            }
-                            throw new CertificateException("Untrusted server certificate");
+//                            if (chain != null && chain.length > 0) {
+//                                String serverHost = chain[0].getSubjectX500Principal().getName();
+//                                if (isLoopbackAddress(serverHost) || "CN=rclient".equals(serverHost)) {
+//                                    return;
+//                                }
+//                            }
+//                            throw new CertificateException("Untrusted server certificate");
 
                         }
 
@@ -120,24 +123,6 @@ public class RCConnector implements Managable, Loggable {
             return;
         }
         transition(RCConnectionState.CONNECTING);
-        shutdownRCComponents();
-        String secret = Util.createSecret();
-        int port = Util.findFreePort();
-        processHandler.startRiotClientServicesProcess(port, secret);
-        transition(RCConnectionState.AWAIT_CONNECTION);
-        String tempAuthToken = "Basic " + Base64.getEncoder().encodeToString(("riot:" + secret).trim().getBytes());
-        if (checkConnection(port, tempAuthToken)) {
-            this.port = port;
-            this.secret = secret;
-            this.authToken = tempAuthToken;
-            log("Connected to RC");
-            log(LogLevel.INFO, "Port: " + port);
-            log(LogLevel.INFO, "Secret: " + secret);
-            log(LogLevel.INFO, "AuthToken: " + this.authToken);
-            transition(RCConnectionState.CONNECTED);
-        } else {
-            transition(RCConnectionState.DISCONNECTED);
-        }
     }
 
     private boolean checkConnection(int port, String authToken) {
@@ -145,23 +130,59 @@ public class RCConnector implements Managable, Loggable {
     }
 
     private void transition(RCConnectionState newState) {
+        if (!running) return;
+        if (connectionState == newState) return;
         log("Transitioning from " + connectionState + " to " + newState);
         connectionState = newState;
         starter.getLocalServer().sendToAllWebsockets(connectionState.toString());
-        switch (newState) {
-            case CONNECTED:
-                rcClient.start();
-                if (!rcClient.registerDebugSession()) {
-                    log(LogLevel.WARN, "Failed to register debug session, this might cause the connection to disconnect upon closing an instance of " + Game.RIOT_CLIENT.getDisplayName());
+        new Thread(
+                () -> {
+                    if (!running) return;
+                    switch (newState) {
+                        case CONNECTING:
+                            shutdownRCComponents();
+                            String secret = Util.createSecret();
+                            int port = Util.findFreePort();
+                            processHandler.startRiotClientServicesProcess(port, secret);
+                            testPort = port;
+                            testSecret = secret;
+                            transition(RCConnectionState.AWAIT_CONNECTION);
+                            break;
+                        case AWAIT_CONNECTION:
+                            String tempAuthToken = "Basic " + Base64.getEncoder().encodeToString(("riot:" + testSecret).trim().getBytes());
+                            if (checkConnection(testPort, tempAuthToken)) {
+                                this.port = testPort;
+                                this.secret = testSecret;
+                                this.authToken = tempAuthToken;
+                                log("Connected to RC");
+                                log(LogLevel.INFO, "Port: " + this.port);
+                                log(LogLevel.INFO, "Secret: " + this.secret);
+                                log(LogLevel.INFO, "AuthToken: " + this.authToken);
+                                transition(RCConnectionState.CONNECTED);
+                            } else {
+                                transition(RCConnectionState.DISCONNECTED);
+                            }
+                            break;
+                        case CONNECTED:
+                            rcClient.start();
+                            if (!rcClient.registerDebugSession()) {
+                                log(LogLevel.WARN, "Failed to register debug session, this might cause the connection to disconnect upon closing an instance of " + Game.RIOT_CLIENT.getDisplayName());
+                            }
+                            starter.getDataManger().start();
+                            break;
+                        case DISCONNECTED:
+                            this.port = null;
+                            this.secret = null;
+                            this.authToken = null;
+                            starter.getDataManger().stop();
+                            rcClient.stop();
+                            log("Disconnected from RC");
+                            break;
+                        default:
+                            break;
+                    }
                 }
-                break;
-            case DISCONNECTED:
-                this.port = null;
-                this.secret = null;
-                this.authToken = null;
-                rcClient.stop();
-                break;
-        }
+        ).start();
     }
 
     public void RCWebsocketClosed() {
@@ -212,12 +233,21 @@ public class RCConnector implements Managable, Loggable {
         if (processHandler == null) {
             log(LogLevel.ERROR, "No process handler available for this OS");
             starter.exit(EXIT_CODE.NO_PROCESS_HANDLER_AVAILABLE);
+            return;
         }
+        processHandler.start();
     }
 
     @Override
     public void stop() {
+        log("Stopping");
         running = false;
+        connectionState = RCConnectionState.DISCONNECTED;
+        processHandler.stop();
+        rcClient.stop();
+        port = null;
+        secret = null;
+        authToken = null;
     }
 
     @Override
@@ -232,6 +262,6 @@ public class RCConnector implements Managable, Loggable {
 
     @Override
     public void log(LogLevel level, Object o) {
-        SimpleLogger.getInstance().log(level,this.getClass().getSimpleName() + ": " + o);
+        SimpleLogger.getInstance().log(level, this.getClass().getSimpleName() + ": " + o);
     }
 }

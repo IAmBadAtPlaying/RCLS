@@ -62,9 +62,7 @@ public abstract class MapDataManager<T> extends BasicDataManager {
 
     @Override
     public void stop() {
-        if (!running) return;
-        running = false;
-        doStop();
+        super.stop();
         map.clear();
     }
 }

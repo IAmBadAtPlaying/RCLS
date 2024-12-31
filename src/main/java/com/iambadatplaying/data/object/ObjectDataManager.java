@@ -27,9 +27,7 @@ public abstract class ObjectDataManager extends BasicDataManager {
 
     @Override
     public void stop() {
-        if (!running) return;
-        running = false;
-        doStop();
+        super.stop();
         currentState = null;
     }
 

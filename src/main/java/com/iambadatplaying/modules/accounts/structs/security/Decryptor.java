@@ -1,4 +1,4 @@
-package com.iambadatplaying.data.accounts.security;
+package com.iambadatplaying.modules.accounts.structs.security;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -16,7 +16,12 @@ public class Decryptor {
         this.password = password;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
     public Optional<String> decrypt(String encryptedData, String dataSalt) {
+        if (encryptedData == null || dataSalt == null) return Optional.empty();
         try {
             byte[] salt = Base64.getDecoder().decode(dataSalt);
 

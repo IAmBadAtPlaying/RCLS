@@ -5,7 +5,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import javax.net.ssl.HttpsURLConnection;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +16,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.zip.GZIPInputStream;
 
 public final class Util {
     private Util() {}
@@ -209,11 +209,27 @@ public final class Util {
         return Optional.empty();
     }
 
+    public static Optional<GZIPInputStream> getGZIPInputStream(HttpURLConnection connection) {
+        try {
+            return Optional.of(new GZIPInputStream(connection.getInputStream()));
+        } catch (IOException e) {
+            try {
+                return Optional.of(new GZIPInputStream(connection.getErrorStream()));
+            } catch (Exception ex) {}
+        }
+
+        return Optional.empty();
+    }
+
     public static Optional<Integer> getResponseCode(HttpURLConnection connection) {
         try {
             return Optional.of(connection.getResponseCode());
         } catch (IOException e) {
             return Optional.empty();
         }
+    }
+
+    public static <T> T castUnsafe(Object obj) {
+        return (T) obj;
     }
 }

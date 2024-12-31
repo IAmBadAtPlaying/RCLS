@@ -3,9 +3,10 @@ package com.iambadatplaying.server.rest;
 import com.iambadatplaying.Starter;
 import com.iambadatplaying.server.rest.providers.GsonJsonElementMessageBodyReader;
 import com.iambadatplaying.server.rest.providers.GsonJsonElementMessageBodyWriter;
-import com.iambadatplaying.server.rest.servlets.echo.EchoServletV1;
+import com.iambadatplaying.server.rest.servlets.debug.DebugServletV1;
 import com.iambadatplaying.server.rest.servlets.games.GameControlServlet;
 import com.iambadatplaying.server.rest.servlets.login.LoginServletV1;
+import com.iambadatplaying.server.rest.servlets.valolytics.ValolyticsServletV1;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.servlet.ServletContainer;
@@ -26,6 +27,29 @@ public class RestContextHandler extends ServletContextHandler {
         addLoginServlet();
         addEchoServlet();
         addLaunchGameServlet();
+        addExperimentalServlet();
+    }
+
+    private void addExperimentalServlet() {
+        StringBuilder sb = new StringBuilder();
+        buildProviderList(
+                sb,
+                GsonJsonElementMessageBodyReader.class,
+                GsonJsonElementMessageBodyWriter.class
+        );
+
+        buildServletList(
+                sb,
+                ValolyticsServletV1.class
+        );
+
+        sb.delete(sb.length() - 1, sb.length());
+        ServletHolder echoServletHolder = addServlet(ServletContainer.class, "/experimental/*");
+        echoServletHolder.setInitOrder(0);
+        echoServletHolder.setInitParameter(
+                "jersey.config.server.provider.classnames",
+                sb.toString()
+        );
     }
 
     private void addEchoServlet() {
@@ -38,11 +62,11 @@ public class RestContextHandler extends ServletContextHandler {
 
         buildServletList(
                 sb,
-                EchoServletV1.class
+                DebugServletV1.class
         );
 
         sb.delete(sb.length() - 1, sb.length());
-        ServletHolder echoServletHolder = addServlet(ServletContainer.class, "/echo/*");
+        ServletHolder echoServletHolder = addServlet(ServletContainer.class, "/debug/*");
         echoServletHolder.setInitOrder(0);
         echoServletHolder.setInitParameter(
                 "jersey.config.server.provider.classnames",

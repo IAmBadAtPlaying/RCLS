@@ -44,9 +44,9 @@ public class RCClient implements Managable, Loggable {
         launchConfig.add("voiceLocale", JsonNull.INSTANCE);
         launchConfig.addProperty("workingDirectory", "");
 
-        requestObject.addProperty("exitCode",0);
+        requestObject.addProperty("exitCode", 0);
         requestObject.add("exitReason", JsonNull.INSTANCE);
-        requestObject.addProperty("isInternal",isInternal);
+        requestObject.addProperty("isInternal", isInternal);
         requestObject.add("launchConfig", launchConfig);
         requestObject.addProperty("patchlineFullName", "Just dont quit on rc exit");
         requestObject.addProperty("patchlineId", "developer_product.defaultpatchline");
@@ -87,7 +87,7 @@ public class RCClient implements Managable, Loggable {
     public boolean registerDebugSession() {
         String debugSessionName = Util.createSecret() + Util.createSecret();
         JsonObject requestObject = RCClient.createKeepAliveObject(true);
-        HttpsURLConnection con = starter.getRCConnector().getRCConnectionManager().buildConnection(RCConnectionManager.Method.POST, "/product-session/v1/sessions/"+debugSessionName, requestObject.toString());
+        HttpsURLConnection con = starter.getRCConnector().getRCConnectionManager().buildConnection(RCConnectionManager.Method.POST, "/product-session/v1/sessions/" + debugSessionName, requestObject.toString());
         Optional<Integer> optResponse = Util.getResponseCode(con);
         if (!optResponse.isPresent()) {
             log(LogLevel.WARN, "Failed to get response code from debug session registration");
@@ -106,8 +106,17 @@ public class RCClient implements Managable, Loggable {
     @Override
     public void stop() {
         running = false;
-        if (client != null) client.destroy();
+        Optional.ofNullable(client).ifPresent(webSocketClient -> {
+            try {
+                webSocketClient.stop();
+            } catch (Exception e) {
+                log(LogLevel.ERROR, e);
+            }
+        });
+        Optional.ofNullable(client).ifPresent(WebSocketClient::destroy);
+
         client = null;
+        rcWebsocket = null;
     }
 
     @Override

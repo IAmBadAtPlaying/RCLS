@@ -58,6 +58,7 @@ public class LocalWebsocket implements Loggable {
 
     public void externalShutdown() {
         if (!markedForShutdown) {
+            log("External shutdown invoked");
             starter.getLocalServer().removeWebsocketConnection(this);
             markedForShutdown = true;
         }
@@ -78,6 +79,7 @@ public class LocalWebsocket implements Loggable {
         log("Client connected! " + session.getRemoteAddress().getAddress());
         messageSenderThread.start();
         keepAliveTimer.schedule(keepAliveTask, 0, KEEP_ALIVE_INTERVAL_MS);
+        sendMessage("Hello Client!");
     }
 
     @OnWebSocketClose

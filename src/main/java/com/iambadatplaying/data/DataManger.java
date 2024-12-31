@@ -9,13 +9,16 @@ import com.iambadatplaying.Util;
 import com.iambadatplaying.data.array.ArrayDataManager;
 import com.iambadatplaying.data.map.MapDataManager;
 import com.iambadatplaying.data.map.SessionManager;
+import com.iambadatplaying.data.map.ValorantMatchDataManager;
 import com.iambadatplaying.data.object.ObjectDataManager;
 import com.iambadatplaying.data.object.RSOAuthenticationManager;
 import com.iambadatplaying.logger.LogLevel;
 import com.iambadatplaying.logger.Loggable;
 import com.iambadatplaying.logger.SimpleLogger;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 public class DataManger implements Loggable, Managable {
@@ -23,9 +26,9 @@ public class DataManger implements Loggable, Managable {
     private final Starter starter;
     private       boolean running = false;
 
-    private final HashMap<String, MapDataManager>    mapDataManagers    = new HashMap<>();
-    private final HashMap<String, ObjectDataManager> objectDataManagers = new HashMap<>();
-    private final HashMap<String, ArrayDataManager>  arrayDataManagers  = new HashMap<>();
+    private final Map<String, MapDataManager>    mapDataManagers    = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, ObjectDataManager> objectDataManagers = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, ArrayDataManager>  arrayDataManagers  = Collections.synchronizedMap(new HashMap<>());
 
     public DataManger(Starter starter) {
         this.starter = starter;
@@ -35,6 +38,7 @@ public class DataManger implements Loggable, Managable {
     private void addManagers() {
         addManager(new RSOAuthenticationManager(starter));
         addManager(new SessionManager(starter));
+        addManager(new ValorantMatchDataManager(starter));
     }
 
     private void addManager(MapDataManager manager) {
@@ -83,6 +87,7 @@ public class DataManger implements Loggable, Managable {
     }
 
     private void update(String type, String uri, JsonElement data) {
+        if (!running) return;
         log(type + " " + uri + ": " + data);
         new Thread(() -> {
             mapDataManagers.values().forEach(manager -> {
@@ -111,12 +116,14 @@ public class DataManger implements Loggable, Managable {
 
     @Override
     public void stop() {
+        log("Stopping");
         running = false;
         mapDataManagers.values().forEach(MapDataManager::stop);
-        mapDataManagers.clear();
         objectDataManagers.values().forEach(ObjectDataManager::stop);
-        objectDataManagers.clear();
         arrayDataManagers.values().forEach(ArrayDataManager::stop);
+
+        mapDataManagers.clear();
+        objectDataManagers.clear();
         arrayDataManagers.clear();
     }
 

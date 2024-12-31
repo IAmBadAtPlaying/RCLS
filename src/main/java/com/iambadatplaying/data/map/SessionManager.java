@@ -24,7 +24,7 @@ public class SessionManager extends MapDataManager<String> {
     private String keepAliveSessionId = null;
     private String keystoneSessionId = null;
 
-    private Timer timer = new Timer();
+    private Timer timer;
 
     public SessionManager(Starter starter) {
         super(starter);
@@ -65,12 +65,17 @@ public class SessionManager extends MapDataManager<String> {
 
     @Override
     protected void doStart() {
+        timer = new Timer();
         loadCurrentSessions();
     }
 
     @Override
     protected void doStop() {
-
+        Optional.ofNullable(timer).ifPresent(Timer::cancel);
+        Optional.ofNullable(timer).ifPresent(Timer::purge);
+        timer = null;
+        keepAliveSessionId = null;
+        keystoneSessionId = null;
     }
 
     @Override

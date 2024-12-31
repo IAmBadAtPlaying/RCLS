@@ -49,7 +49,11 @@ public abstract class BasicDataManager implements Managable, Loggable {
     protected abstract void doStart();
 
     public void stop() {
-        if (!running) return;
+        if (!running) {
+            log("Not running");
+            return;
+        }
+        log("Stopping");
         running = false;
         doStop();
     }

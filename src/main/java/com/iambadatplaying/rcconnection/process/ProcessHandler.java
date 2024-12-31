@@ -1,10 +1,11 @@
 package com.iambadatplaying.rcconnection.process;
 
+import com.iambadatplaying.Managable;
 import com.iambadatplaying.logger.Loggable;
 
 import java.util.OptionalInt;
 
-public interface ProcessHandler extends Loggable {
+public interface ProcessHandler extends Loggable, Managable {
 
     void startRiotClientServicesProcess(int port, String authToken);
 

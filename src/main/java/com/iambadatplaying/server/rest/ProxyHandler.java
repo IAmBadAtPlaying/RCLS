@@ -3,6 +3,7 @@ package com.iambadatplaying.server.rest;
 import com.iambadatplaying.Starter;
 import com.iambadatplaying.rcconnection.RCConnectionManager;
 import com.iambadatplaying.rcconnection.RCConnectionState;
+import com.iambadatplaying.server.LocalServer;
 import com.iambadatplaying.server.rest.servlets.ServletUtils;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
@@ -29,6 +30,14 @@ public class ProxyHandler extends AbstractHandler {
 
     @Override
     public void handle(String s, Request request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws IOException, ServletException {
+        String originHeader = request.getHeader("Origin");
+        if (LocalServer.filterOrigin(originHeader)) {
+            httpServletResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            httpServletResponse.getWriter().write(ServletUtils.createResponseJson("Forbidden", "Origin not allowed").toString());
+            request.setHandled(true);
+            return;
+        }
+
         if (starter.getRCConnector().getConnectionState() != RCConnectionState.CONNECTED) {
             httpServletResponse.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             httpServletResponse.getWriter().write(ServletUtils.createResponseJson("Service Unavailable", "Riot Client connection not established").toString());
@@ -82,6 +91,8 @@ public class ProxyHandler extends AbstractHandler {
             switch (key) {
                 case "Cache-Control":
                 case "Access-Control-Allow-Origin":
+                case "Access-Control-Allow-Methods":
+                case "access-control-expose-headers":
                     continue;
                 default:
                     if (value.isEmpty()) continue;
@@ -90,6 +101,8 @@ public class ProxyHandler extends AbstractHandler {
             }
         }
 
+        httpServletResponse.setHeader("Access-Control-Allow-Origin", "*");
+        httpServletResponse.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH");
         httpServletResponse.setStatus(HttpServletResponse.SC_OK);
         httpServletResponse.getOutputStream().write(responseBytes);
         httpServletResponse.getOutputStream().flush();

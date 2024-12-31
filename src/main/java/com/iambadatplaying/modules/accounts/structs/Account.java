@@ -1,33 +1,33 @@
-package com.iambadatplaying.data.accounts.structs;
+package com.iambadatplaying.modules.accounts.structs;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
-import com.iambadatplaying.data.accounts.security.Decryptor;
-import com.iambadatplaying.data.accounts.security.Encryptor;
+import com.iambadatplaying.modules.accounts.structs.security.Decryptor;
+import com.iambadatplaying.modules.accounts.structs.security.Encryptor;
 
 import java.util.Optional;
 import java.util.UUID;
 
-public class Account {
+public class Account implements Lockable {
     // We should never read or write these fields in the serialized form as they contain sensitive information
-    private transient String loginName;
     private transient String loginPassword;
 
     private transient boolean unlocked = false;
 
+    @SerializedName("versionId")
+    private int versionId = 1;
+
     @SerializedName("uuid")
     private String uuid;
 
-    @SerializedName("username")
-    private String encryptedUsername;
+    @SerializedName("loginName")
+    private String loginName;
 
     @SerializedName("password")
     private String encryptedPassword;
-
-    @SerializedName("usernameSalt")
-    private String usernameSalt;
 
     @SerializedName("passwordSalt")
     private String passwordSalt;
@@ -56,7 +56,11 @@ public class Account {
             return json;
         }
 
-        return null;
+        JsonObject jsonObject = json.getAsJsonObject();
+        jsonObject.addProperty("loginName", loginName);
+        jsonObject.addProperty("loginPassword", loginPassword);
+
+        return jsonObject;
     }
 
     public boolean unlock(Decryptor decryptor) {
@@ -68,14 +72,12 @@ public class Account {
             return false;
         }
 
-        Optional<String> optDecryptedUsername = decryptor.decrypt(encryptedUsername, usernameSalt);
         Optional<String> optDecryptedPassword = decryptor.decrypt(encryptedPassword, passwordSalt);
 
-        if (!optDecryptedUsername.isPresent() || !optDecryptedPassword.isPresent()) {
+        if (!optDecryptedPassword.isPresent()) {
             return false;
         }
 
-        loginName = optDecryptedUsername.get();
         loginPassword = optDecryptedPassword.get();
 
         onUnlock();
@@ -84,9 +86,7 @@ public class Account {
     }
 
     private void onUnlock() {
-        usernameSalt = null;
         passwordSalt = null;
-        encryptedUsername = null;
         encryptedPassword = null;
 
         if (uuid == null) {
@@ -105,18 +105,13 @@ public class Account {
             return false;
         }
 
-        Optional<Encryptor.EncryptResult> optEncryptedUsername = encryptor.encrypt(loginName);
         Optional<Encryptor.EncryptResult> optEncryptedPassword = encryptor.encrypt(loginPassword);
 
-        if (!optEncryptedUsername.isPresent() || !optEncryptedPassword.isPresent()) {
+        if (!optEncryptedPassword.isPresent()) {
             return false;
         }
 
-        Encryptor.EncryptResult encryptedUsername = optEncryptedUsername.get();
         Encryptor.EncryptResult encryptedPassword = optEncryptedPassword.get();
-
-        this.usernameSalt = encryptedUsername.getDataSalt();
-        this.encryptedUsername = encryptedUsername.getEncryptedData();
 
         this.passwordSalt = encryptedPassword.getDataSalt();
         this.encryptedPassword = encryptedPassword.getEncryptedData();
@@ -132,34 +127,40 @@ public class Account {
         unlocked = false;
     }
 
+    @Override
     public boolean isUnlocked() {
         return unlocked;
     }
 
     public static void main(String[] args) {
+
+        AccountList accountList = new AccountList(
+                "TestMap",
+                "password1234"
+        );
+
         Account account = new Account(
                 "test",
                 "password"
         );
-        account.loginName = "test";
-        account.loginPassword = "testPassword!";
-        System.out.println(account.loginName);
-        System.out.println(account.loginPassword);
 
-        System.out.println(account.lock(new Encryptor("password")));
+        System.out.println(account);
+
+        String uuid = account.getUuid();
+
+        System.out.println("Account added ? " + accountList.addAccount(account));
+
+        accountList.lock();
 
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-
-        String serialized = gson.toJson(account, Account.class);
+        String serialized = gson.toJson(accountList);
         System.out.println(serialized);
 
-
-        Account deserialized = gson.fromJson(serialized, Account.class);
-
-
-        System.out.println(deserialized.unlock(new Decryptor("password")));
-
-        System.out.println(deserialized.loginName);
-        System.out.println(deserialized.loginPassword);
+        AccountList deserialized = gson.fromJson(serialized, AccountList.class);
+        deserialized.unlock("password1234");
+        Account desAcc = deserialized.getAccount(uuid);
+        System.out.println(desAcc.loginName);
+        System.out.println(desAcc.loginPassword);
     }
 }
+

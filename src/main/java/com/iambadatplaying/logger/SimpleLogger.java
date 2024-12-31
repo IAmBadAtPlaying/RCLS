@@ -1,5 +1,7 @@
 package com.iambadatplaying.logger;
 
+import com.iambadatplaying.Starter;
+
 public class SimpleLogger {
 
     private SimpleLogger() {
@@ -25,6 +27,16 @@ public class SimpleLogger {
     }
 
     public void log(LogLevel level, Object o) {
+        if (!Starter.isDev) {
+            switch (level) {
+                case DEBUG:
+                case INFO:
+                    return;
+                default:
+                    break;
+
+            }
+        }
         System.out.println(getColoredLevelPrefix(level)+ ": " + o);
     }
 

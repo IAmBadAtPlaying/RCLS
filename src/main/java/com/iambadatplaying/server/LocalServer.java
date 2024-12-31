@@ -6,6 +6,8 @@ import com.iambadatplaying.Starter;
 import com.iambadatplaying.logger.LogLevel;
 import com.iambadatplaying.logger.Loggable;
 import com.iambadatplaying.logger.SimpleLogger;
+import com.iambadatplaying.modules.BasicModule;
+import com.iambadatplaying.server.rest.BasicModuleContextHandler;
 import com.iambadatplaying.server.rest.ProxyHandler;
 import com.iambadatplaying.server.rest.RestContextHandler;
 import org.eclipse.jetty.server.Request;
@@ -14,9 +16,11 @@ import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.websocket.server.WebSocketHandler;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
+import org.glassfish.jersey.servlet.ServletContainer;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.ServletException;
@@ -52,6 +56,7 @@ public class LocalServer implements Loggable, Managable {
     public static void addAllowedOrigins() {
         //Allows certain origins to access the resource server.
         //For example, if an external website wants to access the resource server, it must be added here.
+        allowedOrigins.add(Pattern.compile(".*"));
     }
 
     public static boolean filterWebSocketRequest(ServletUpgradeRequest req) {
@@ -102,6 +107,7 @@ public class LocalServer implements Loggable, Managable {
     public void start() {
         running = true;
         server =  new Server(APPLICATION_PORT);
+        server.setStopAtShutdown(true);
         setupServerHandlers();
         try {
             server.start();
@@ -160,7 +166,38 @@ public class LocalServer implements Loggable, Managable {
         };
         wsContext.insertHandler(wsHandler);
 
-        RestContextHandler restContext = new RestContextHandler(starter);
+        RestContextHandler restContext = new RestContextHandler(starter) {
+            @Override
+            public void doHandle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                DispatcherType dispatch = baseRequest.getDispatcherType();
+                boolean newContext = baseRequest.takeNewContext();
+                try {
+                    if (newContext) {
+                        this.requestInitialized(baseRequest, request);
+                    }
+
+                    if (filterRequest(request, response)) {
+                        baseRequest.setHandled(true);
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Origin not allowed");
+                        return;
+                    }
+
+                    if (dispatch == DispatcherType.REQUEST && this.isProtectedTarget(target)) {
+                        baseRequest.setHandled(true);
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+
+                    this.nextHandle(target, baseRequest, request, response);
+                } finally {
+                    if (newContext) {
+                        this.requestDestroyed(baseRequest, request);
+                    }
+
+                }
+
+            }
+        };
         restContext.setContextPath("/rest");
         handlers.addHandler(restContext);
 
@@ -168,6 +205,84 @@ public class LocalServer implements Loggable, Managable {
         proxyContext.setContextPath("/proxy");
         proxyContext.setHandler(new ProxyHandler(starter));
         handlers.addHandler(proxyContext);
+
+        //This may be public as all data is publicly available
+        ResourceHandler resourceHandler = new ResourceHandler();
+        resourceHandler.setDirectoriesListed(true);
+        resourceHandler.setResourceBase(Starter.class.getResource("/html").toExternalForm());
+
+        ContextHandler staticContext = new ContextHandler() {
+
+            @Override
+            public void doHandle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                DispatcherType dispatch = baseRequest.getDispatcherType();
+                boolean newContext = baseRequest.takeNewContext();
+                try {
+                    if (newContext) {
+                        this.requestInitialized(baseRequest, request);
+                    }
+
+                    if (filterRequest(request, response)) {
+                        baseRequest.setHandled(true);
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Origin not allowed");
+                        return;
+                    }
+
+                    if (dispatch == DispatcherType.REQUEST && this.isProtectedTarget(target)) {
+                        baseRequest.setHandled(true);
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+
+                    this.nextHandle(target, baseRequest, request, response);
+                } finally {
+                    if (newContext) {
+                        this.requestDestroyed(baseRequest, request);
+                    }
+
+                }
+
+            }
+        };
+        staticContext.setContextPath("/static");
+        staticContext.setHandler(resourceHandler);
+        handlers.addHandler(staticContext);
+
+        BasicModuleContextHandler moduleHandler = new BasicModuleContextHandler(starter) {
+            @Override
+            public void doHandle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                DispatcherType dispatch = baseRequest.getDispatcherType();
+                boolean newContext = baseRequest.takeNewContext();
+                try {
+                    if (newContext) {
+                        this.requestInitialized(baseRequest, request);
+                    }
+
+                    if (filterRequest(request, response)) {
+                        baseRequest.setHandled(true);
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Origin not allowed");
+                        return;
+                    }
+
+                    if (dispatch == DispatcherType.REQUEST && this.isProtectedTarget(target)) {
+                        baseRequest.setHandled(true);
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+
+                    this.nextHandle(target, baseRequest, request, response);
+                } finally {
+                    if (newContext) {
+                        this.requestDestroyed(baseRequest, request);
+                    }
+
+                }
+
+            }
+        };
+        moduleHandler.setContextPath("/modules");
+        moduleHandler.addAllServlets();
+        handlers.addHandler(moduleHandler);
 
         server.setHandler(handlers);
     }
@@ -177,7 +292,12 @@ public class LocalServer implements Loggable, Managable {
         running = false;
         websocketConnections.forEach(LocalWebsocket::externalShutdown);
         websocketConnections.clear();
-        server.destroy();
+        try {
+            server.stop();
+        } catch (Exception e) {
+            log(LogLevel.ERROR, e);
+        }
+        server = null;
         log("Stopped Server");
     }
 

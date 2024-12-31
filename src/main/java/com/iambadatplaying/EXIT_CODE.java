@@ -7,6 +7,7 @@ public enum EXIT_CODE {
     CERTIFICATE_SETUP_FAILED(495, "Certificate Setup Failed"),
     SERVER_BIND_FAILED(500, "Server Bind Failed"),
     HTTP_PATCH_SETUP_FAILED(505, "HTTP Patch Setup Failed"),
+    FAILED_TO_LOAD_MODULES(507, "Failed to load modules"),
     MULTIPLE_CONNECTION_ATTEMPTS_FAILED(522, "Multiple Connection Attempts Failed");
 
     private       int    code;

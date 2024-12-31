@@ -16,7 +16,6 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.InputStream;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -298,7 +297,9 @@ public class LoginServletV1 {
         if (!optLoginResponse.isPresent()) return ServletUtils.createStandardProcessingErrorResponse();
         JsonObject loginResponse = optLoginResponse.get();
         System.out.println(loginResponse);
-        if (Util.jsonKeysPresent(loginResponse, "errorCode")) {return ServletUtils.createStandardProcessingErrorResponse();}
+        if (Util.jsonKeysPresent(loginResponse, "errorCode")) {
+            return ServletUtils.createStandardProcessingErrorResponse();
+        }
 
 
         Optional<String> optLoginToken = Util.getOptJSONObject(loginResponse, "success")
@@ -311,10 +312,50 @@ public class LoginServletV1 {
             System.out.println(loginResponse);
             Optional<JsonObject> optMultifactor = Util.getOptJSONObject(loginResponse, "multifactor");
             if (!optMultifactor.isPresent()) return ServletUtils.createStandardProcessingErrorResponse();
-            return handleMultifactor(starter, optMultifactor.get(),remember);
+            return handleMultifactor(starter, optMultifactor.get(), remember);
         }
 
         return handleNormalAuthflow(starter, loginResponse, remember);
+    }
+
+    @POST
+    @Path("/logout")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response logout() {
+        Starter starter = (Starter) context.getAttribute(RestContextHandler.KEY_CONTEXT_STARTER);
+
+        boolean available = starter.getRCConnector().getConnectionState() == RCConnectionState.CONNECTED;
+
+        if (!available) {
+            return Response
+                    .status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity(ServletUtils.createResponseJson("Service Unavailable", "Riot Client connection not established"))
+                    .build();
+        }
+
+        HttpsURLConnection logoutConnection = starter.getRCConnector().getRCConnectionManager().buildConnection(
+                RCConnectionManager.Method.DELETE,
+                "/rso-auth/v1/session",
+                null
+        );
+
+        OptionalInt optLogoutResponseCode = ServletUtils.getResponseCode(logoutConnection);
+        logoutConnection.disconnect();
+        if (!optLogoutResponseCode.isPresent()) return ServletUtils.createStandardProcessingErrorResponse();
+        int logoutResponseCode = optLogoutResponseCode.getAsInt();
+        switch (logoutResponseCode) {
+            case 204:
+            case 200:
+                return Response
+                        .status(Response.Status.OK)
+                        .entity(ServletUtils.createResponseJson("Logout successful", "Logout successful"))
+                        .build();
+            default:
+                return Response
+                        .status(Response.Status.BAD_REQUEST)
+                        .entity(ServletUtils.createResponseJson("Logout failed", "Check if other games are running"))
+                        .build();
+        }
     }
 
     @POST
@@ -441,14 +482,15 @@ public class LoginServletV1 {
     }
 
     private Response handleMultifactor(Starter starter, JsonObject multifactorData, boolean remember) {
-        if (!Util.jsonKeysPresent(multifactorData, "email", "method","methods","mode")) return ServletUtils.createStandardProcessingErrorResponse();
+        if (!Util.jsonKeysPresent(multifactorData, "email", "method", "methods", "mode"))
+            return ServletUtils.createStandardProcessingErrorResponse();
 
         Optional<String> optMode = Util.getOptString(multifactorData, "mode");
         if (!optMode.isPresent()) return ServletUtils.createStandardProcessingErrorResponse();
         if (!"auth".equals(optMode.get())) return ServletUtils.createStandardProcessingErrorResponse();
 
         JsonObject cleanMultifactorData = new JsonObject();
-        Util.copyJsonAttributes(multifactorData, cleanMultifactorData, "email", "method","methods","mode");
+        Util.copyJsonAttributes(multifactorData, cleanMultifactorData, "email", "method", "methods", "mode");
 
         return Response
                 .status(Response.Status.UNAUTHORIZED)

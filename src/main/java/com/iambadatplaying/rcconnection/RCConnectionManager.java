@@ -118,6 +118,7 @@ public class RCConnectionManager implements Loggable {
     }
 
     private boolean doCheckConnection(String authToken, int port, int tries) {
+        if (!starter.isRunning()) return false;
         if (tries > 3) return false;
         try {
             Thread.sleep(1000);

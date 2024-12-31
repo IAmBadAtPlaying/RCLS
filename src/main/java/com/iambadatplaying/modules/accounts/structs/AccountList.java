@@ -1,16 +1,13 @@
-package com.iambadatplaying.data.accounts.structs;
+package com.iambadatplaying.modules.accounts.structs;
 
 import com.google.gson.annotations.SerializedName;
-import com.iambadatplaying.data.accounts.security.Decryptor;
-import com.iambadatplaying.data.accounts.security.Encryptor;
+import com.iambadatplaying.modules.accounts.structs.security.Decryptor;
+import com.iambadatplaying.modules.accounts.structs.security.Encryptor;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.security.SecureRandom;
+import java.util.*;
 
-public class AccountMap {
+public class AccountList implements Lockable {
 
     //We will just have a map internally and not expose it
     //Doing this we allow restricted access to write operations that might otherwise override locked accounts
@@ -19,7 +16,7 @@ public class AccountMap {
     private transient boolean              unlocked = false;
 
     private transient String masterPassword;
-    private transient String encryptedSecret;
+    private String encryptedSecret;
 
     private String salt;
     private String secretToMatch;
@@ -30,7 +27,11 @@ public class AccountMap {
     @SerializedName("name")
     private String name;
 
-    public AccountMap() {
+    public AccountList(String name, String masterPassword) {
+        this.unlocked = true;
+        this.name = name;
+        this.masterPassword = masterPassword;
+        this.id = UUID.randomUUID().toString();
     }
 
     public boolean changeMasterPassword(String newPassword) {
@@ -38,38 +39,6 @@ public class AccountMap {
 
         masterPassword = newPassword;
         return true;
-    }
-
-    public Account getAccount(String uuid) {
-        return accounts.get(uuid);
-    }
-
-    public boolean addAccount(Account account) {
-        if (!unlocked) return false;
-        String uuid = account.getUuid();
-        if (accounts.containsKey(uuid)) return false;
-        accounts.put(account.getUuid(), account);
-        return true;
-    }
-
-    public boolean removeAccount(String uuid) {
-        if (!unlocked) return false;
-        return accounts.remove(uuid) != null;
-    }
-
-    public boolean updateAccount(String uuid, Account account) {
-        if (!unlocked) return false;
-        if (!accounts.containsKey(uuid)) return false;
-        accounts.put(uuid, account);
-        return true;
-    }
-
-    public Account getAccountByUUID(String uuid) {
-        return accounts.get(uuid);
-    }
-
-    public Account[] getAccounts() {
-        return accounts.values().toArray(new Account[0]);
     }
 
     public boolean unlock(String password) {
@@ -114,6 +83,8 @@ public class AccountMap {
         synchronized (this) {
             Encryptor encryptor = new Encryptor(masterPassword);
 
+            this.secretToMatch = generateSecureRandomString(32);
+
             Optional<Encryptor.EncryptResult> optEncrptData = encryptor.encrypt(secretToMatch);
             if (!optEncrptData.isPresent()) {
                 return false;
@@ -137,6 +108,66 @@ public class AccountMap {
     }
 
     private void onLock() {
+        masterPassword = null;
         unlocked = false;
+    }
+
+    private static String generateSecureRandomString(int byteLength) {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[byteLength];
+        random.nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    public Account getAccount(String uuid) {
+        return accounts.get(uuid);
+    }
+
+    public boolean addAccount(Account account) {
+        if (!unlocked) return false;
+        String uuid = account.getUuid();
+        if (accounts.containsKey(uuid)) return false;
+        accounts.put(account.getUuid(), account);
+        return true;
+    }
+
+    public boolean removeAccount(String uuid) {
+        if (!unlocked) return false;
+        return accounts.remove(uuid) != null;
+    }
+
+    public boolean updateAccount(String uuid, Account account) {
+        if (!unlocked) return false;
+        if (!accounts.containsKey(uuid)) return false;
+        accounts.put(uuid, account);
+        return true;
+    }
+
+    public Account getAccountByUUID(String uuid) {
+        return accounts.get(uuid);
+    }
+
+    public Account[] getAccounts() {
+        return accounts.values().toArray(new Account[0]);
+    }
+
+    public String getId() {
+        if (this.id == null) {
+            this.id = UUID.randomUUID().toString();
+        }
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public boolean isUnlocked() {
+        return unlocked;
     }
 }

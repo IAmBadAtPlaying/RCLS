@@ -1,0 +1,108 @@
+<html>
+<head>
+    <script>
+
+
+        const riotHeader = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) riot-client-ux/97.0.0 Chrome/108.0.5359.215 Electron/22.3.27 Safari/537.36";
+        let rqdata = '';
+        const exampleUsername = 'FluffyPorosAreReal';
+        const examplePassword = '/Gommemode 1';
+
+        function onSubmit(token) {
+            document.getElementById('token').value = token;
+            xhr = new XMLHttpRequest();
+            xhr.open("POST", "http://127.0.0.1:35200/rest/login/v1/login", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.send(
+                JSON.stringify({
+                    username: exampleUsername,
+                    password: examplePassword,
+                    remember: false,
+                    language: "en_US",
+                    captcha: "hcaptcha " + token
+                })
+            )
+        }
+
+        function validate(event) {
+            event.preventDefault();
+            hcaptcha.execute();
+            hcaptcha.getResponse();
+        }
+
+        function hcaptchaOnLoad() {
+            var element = document.getElementById('submit');
+            element.onclick = validate;
+            element.disabled = false;
+
+            var saveElement = document.getElementById('save');
+            saveElement.disabled = false;
+            saveElement.onclick = setCaptchaRqData;
+
+            const widgetId = hcaptcha.render("hcaptcha");
+        }
+
+        function handleInputChange(data) {
+            rqdata = data;
+        }
+
+        function setCaptchaRqData(event) {
+            event.preventDefault();
+            console.log('rqdata', rqdata);
+            hcaptcha.setData({
+                rqdata: rqdata
+            });
+        }
+
+        function checkWindowUrl() {
+            const currentUrl = window.location.href;
+            if (currentUrl.includes('localhost')) {
+                if (confirm('You are running on localhost, captcha will not work. Please use 127.0.0.1 instead')) {
+                    window.location.href = currentUrl.replace('localhost', '127.0.0.1');
+                } else {
+                    window.location.href = '';
+                }
+            } else {
+                console.log('Valid host');
+            }
+        }
+
+        function injectScript() {
+            const script = document.createElement('script');
+            script.src = 'https://js.hcaptcha.com/1/api.js?render=explicit&onload=hcaptchaOnLoad';
+            script.id = 'hcaptcha-api-script-id';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        checkWindowUrl()
+        injectScript();
+    </script>
+</head>
+<body>
+<form>
+    <div
+            id = "hcaptcha"
+            class="h-captcha"
+            data-sitekey="019f1553-3845-481c-a6f5-5a60ccf6d830"
+            data-callback="onSubmit"
+            data-size="invisible"
+    ></div>
+    <br>
+    <label> Input
+        <input type="text" oninput="handleInputChange(this.value)">
+    </label>
+    <br>
+    <button id="save" disabled>Save RQ Data</button>
+    <br>
+    <button id="submit" disabled>submit</button>
+    <br>
+    <textarea id="token"></textarea>
+</form>
+
+This site is protected by hCaptcha and its
+<a href="https://www.hcaptcha.com/privacy">Privacy Policy</a> and
+<a href="https://www.hcaptcha.com/terms">Terms of Service</a> apply.
+</body>
+</html>

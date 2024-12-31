@@ -1,4 +1,4 @@
-package com.iambadatplaying.data.accounts.security;
+package com.iambadatplaying.modules.accounts.structs.security;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -15,6 +15,10 @@ public class Encryptor {
 
     public Encryptor(String password) {
         this.password = password;
+    }
+
+    public String getPassword() {
+        return password;
     }
 
     public Optional<EncryptResult> encrypt(String data) {
