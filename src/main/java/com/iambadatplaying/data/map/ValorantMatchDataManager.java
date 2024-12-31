@@ -36,7 +36,6 @@ public class ValorantMatchDataManager extends MapDataManager<String> {
 
     @Override
     protected void doStart() {
-        matchIds.add("eb0fa86f-ea69-406d-bc51-a49c87912f98");
     }
 
     @Override

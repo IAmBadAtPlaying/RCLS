@@ -173,9 +173,9 @@ public class ValolyticsServletV1 {
                 matchInfoCon.setRequestProperty("X-Riot-ClientVersion", valorantVersionId);
                 matchInfoCon.setRequestProperty("X-Riot-Entitlements-JWT", entitlementToken);
 
-                Optional<String> optMatchInfo = Util.getGZIPInputStream(matchInfoCon).flatMap(Util::inputStreamToString);
+                Optional<JsonElement> optMatchInfo = Util.getGZIPInputStream(matchInfoCon).flatMap(Util::inputStreamToString).flatMap(Util::parseJson);
                 con.disconnect();
-                starter.log(LogLevel.INFO, optMatchInfo.orElse("Failed to get match info"));
+                optMatchInfo.ifPresent(matchInfo -> accumulator.add(matchId, matchInfo));
             } catch (Exception e) {
                 e.printStackTrace();
             }
