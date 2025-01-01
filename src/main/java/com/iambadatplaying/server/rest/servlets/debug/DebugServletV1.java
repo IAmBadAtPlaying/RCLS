@@ -95,6 +95,33 @@ public class DebugServletV1 {
     }
 
     @POST
+    @Path("/connect")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response connect() {
+        Starter starter = (Starter) context.getAttribute(RestContextHandler.KEY_CONTEXT_STARTER);
+
+        if (starter == null) {
+            return Response
+                    .status(Response.Status.SERVICE_UNAVAILABLE)
+                    .build();
+        }
+
+        RCConnectionState currentState = starter.getRCConnector().getConnectionState();
+        if (currentState != RCConnectionState.DISCONNECTED) {
+            return Response
+                    .status(Response.Status.CONFLICT)
+                    .entity(ServletUtils.createResponseJson("Already connected or in the process of connecting"))
+                    .build();
+        }
+
+        starter.getRCConnector().connectToRC();
+
+        return Response
+                .status(Response.Status.NO_CONTENT)
+                .build();
+    }
+
+    @POST
     @Path("/echo")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)

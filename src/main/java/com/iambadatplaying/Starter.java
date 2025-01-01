@@ -24,7 +24,6 @@ public class Starter implements Managable, Loggable {
     public static void main(String[] args) {
         Starter starter = new Starter();
         starter.start();
-        starter.getRCConnector().connectToRC();
         //Some startup Methods may need access as soon as we get connected to the RC
         starter.getLocalServer().awaitTermination();
     }

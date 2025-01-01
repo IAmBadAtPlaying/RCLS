@@ -35,8 +35,7 @@ public class ValorantMatchDataManager extends MapDataManager<String> {
     }
 
     @Override
-    protected void doStart() {
-    }
+    protected void doStart() {}
 
     @Override
     protected void doStop() {

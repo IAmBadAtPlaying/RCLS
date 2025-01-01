@@ -121,10 +121,6 @@ public class DataManger implements Loggable, Managable {
         mapDataManagers.values().forEach(MapDataManager::stop);
         objectDataManagers.values().forEach(ObjectDataManager::stop);
         arrayDataManagers.values().forEach(ArrayDataManager::stop);
-
-        mapDataManagers.clear();
-        objectDataManagers.clear();
-        arrayDataManagers.clear();
     }
 
     @Override
