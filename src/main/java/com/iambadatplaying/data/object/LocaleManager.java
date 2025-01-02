@@ -32,7 +32,7 @@ public class LocaleManager extends ObjectDataManager {
 
     @Override
     public void sendCurrentState() {
-        starter.getLocalServer().sendToAllWebsockets(getEventDataString(currentState));
+        starter.getLocalServer().sendToAllWebsockets(getEventDataString(getCurrentStateObject()));
     }
 
     @Override
@@ -48,7 +48,9 @@ public class LocaleManager extends ObjectDataManager {
             case UPDATE_TYPE_UPDATE:
             case UPDATE_TYPE_CREATE:
                 if (!jsonObject.has("locale")) return;
-                currentState.addProperty("locale", jsonObject.get("locale").getAsString());
+                JsonObject newLocale = new JsonObject();
+                newLocale.addProperty("locale", jsonObject.get("locale").getAsString());
+                setCurrentState(newLocale);
                 sendCurrentState();
                 break;
             case UPDATE_TYPE_DELETE:

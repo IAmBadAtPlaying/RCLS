@@ -5,8 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.iambadatplaying.Starter;
 import com.iambadatplaying.Util;
+import com.iambadatplaying.data.map.SessionManager;
 import com.iambadatplaying.data.map.ValorantMatchDataManager;
-import com.iambadatplaying.logger.LogLevel;
 import com.iambadatplaying.rcconnection.RCConnectionManager;
 import com.iambadatplaying.rcconnection.RCConnectionState;
 import com.iambadatplaying.rcconnection.process.Game;
@@ -26,12 +26,15 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
 @Path("/v1")
 public class ValolyticsServletV1 {
 
-    private static final String MAGIC_PLATFORM_STRING = "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
+    private static final String  MAGIC_PLATFORM_STRING  = "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
+    private static final Pattern REGION_EXTRACT_PATTERN = Pattern.compile("^https://shared\\.(\\w*)\\.a\\.pvp\\.net$");
 
     @Context
     private ServletContext context;
@@ -134,35 +137,39 @@ public class ValolyticsServletV1 {
                     .build();
         }
 
-        Optional<JsonElement> optProductSessions = Util.getInputStream(con).flatMap(Util::inputStreamToString).flatMap(Util::parseJson);
-        if (!optProductSessions.isPresent()) {
+        SessionManager sessionManager = (SessionManager) starter.getDataManger().getMapDataManager(SessionManager.class);
+
+        JsonArray sessions = sessionManager.getSessionsByGame(Game.VALORANT);
+        if (sessions == null || sessions.isEmpty()) {
             return Response
                     .status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(ServletUtils.createResponseJson("Failed to get product sessions", "Failed to get product sessions from response"))
+                    .entity(ServletUtils.createResponseJson("Failed to get session", "No Valorant session found"))
                     .build();
         }
 
-        JsonObject productSessions = optProductSessions.get().getAsJsonObject();
-        Optional<JsonObject> optValorantSession = productSessions.entrySet().stream().map(entry -> entry.getValue().getAsJsonObject())
-                .filter(obj -> {
-                    if (!Util.jsonKeysPresent(obj, "productId", "version")) return false;
-                    return Game.VALORANT.getInternalName().equals(obj.get("productId").getAsString());
-                }).findFirst();
-
-        if (!optValorantSession.isPresent()) {
-            return Response
-                    .status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(ServletUtils.createResponseJson("Failed to get valorant session", "Valorant session not found"))
-                    .build();
-        }
-
-        JsonObject valorantSession = optValorantSession.get();
+        JsonObject valorantSession = sessions.get(0).getAsJsonObject();
         final String valorantVersionId = valorantSession.get("version").getAsString();
+        final JsonObject launchConfiguration = valorantSession.get("launchConfiguration").getAsJsonObject();
+        final JsonArray arguments = launchConfiguration.get("arguments").getAsJsonArray();
+
+        String deploymentRegion = null;
+        for (JsonElement element : arguments) {
+            String argument = element.getAsString();
+            if (!argument.startsWith("-ares-deployment=")) continue;
+            deploymentRegion = argument.substring("-ares-deployment=".length());
+        }
+
+        if (deploymentRegion == null) {
+            return Response
+                    .status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(ServletUtils.createResponseJson("Failed to get config endpoint", "Failed to get config endpoint from launch configuration"))
+                    .build();
+        }
 
         JsonObject accumulator = new JsonObject();
         for (String matchId : matchIds) {
             try {
-                HttpsURLConnection matchInfoCon = (HttpsURLConnection) new URL("https://pd.eu.a.pvp.net/match-details/v1/matches/" + matchId).openConnection();
+                HttpsURLConnection matchInfoCon = (HttpsURLConnection) new URL("https://pd." + deploymentRegion + ".a.pvp.net/match-details/v1/matches/" + matchId).openConnection();
                 matchInfoCon.setRequestMethod("GET");
                 matchInfoCon.setRequestProperty("User-Agent", "PostmanRuntime/7.43.0");
                 matchInfoCon.setRequestProperty("Accept", "*/*");

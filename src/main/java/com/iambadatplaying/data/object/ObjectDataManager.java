@@ -6,10 +6,19 @@ import com.iambadatplaying.Starter;
 import com.iambadatplaying.data.BasicDataManager;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class ObjectDataManager extends BasicDataManager {
 
-    protected JsonObject currentState = new JsonObject();
+    private AtomicReference<JsonObject> currentState = new AtomicReference<>(new JsonObject());
+
+    protected void setCurrentState(JsonObject newState) {
+        currentState.set(newState);
+    }
+
+    protected JsonObject getCurrentStateObject() {
+        return currentState.get();
+    }
 
     protected ObjectDataManager(Starter starter) {
         super(starter);
@@ -17,9 +26,9 @@ public abstract class ObjectDataManager extends BasicDataManager {
 
     public Optional<JsonObject> getCurrentState() {
         if (!running) return Optional.empty();
-        if (currentState != null) return Optional.of(currentState);
+        if (currentState != null) return Optional.of(currentState.get());
         Optional<JsonObject> newState = fetchCurrentState();
-        newState.ifPresent(jsonArray -> currentState = jsonArray);
+        newState.ifPresent(currentState::set);
         return newState;
     }
 

@@ -42,6 +42,7 @@ public class RSOAuthenticationManager extends ObjectDataManager {
 
     @Override
     public void sendCurrentState() {
+        JsonObject currentState = getCurrentStateObject();
         if (currentState == null) return;
         starter.getLocalServer().sendToAllWebsockets(getEventDataString(currentState));
     }
@@ -66,7 +67,7 @@ public class RSOAuthenticationManager extends ObjectDataManager {
                             log(LogLevel.INFO, "Multifactor: " + multifactor);
                         }
                 );
-                this.currentState = jsonObject;
+                setCurrentState(jsonObject);
                 sendCurrentState();
                 break;
             case UPDATE_TYPE_DELETE:

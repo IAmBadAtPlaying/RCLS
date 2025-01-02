@@ -1,5 +1,6 @@
 package com.iambadatplaying.data.map;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.iambadatplaying.Starter;
@@ -7,9 +8,11 @@ import com.iambadatplaying.Util;
 import com.iambadatplaying.logger.LogLevel;
 import com.iambadatplaying.rcconnection.RCClient;
 import com.iambadatplaying.rcconnection.RCConnectionManager;
+import com.iambadatplaying.rcconnection.process.Game;
 import com.iambadatplaying.server.rest.servlets.ServletUtils;
 
 import javax.net.ssl.HttpsURLConnection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
@@ -158,6 +161,22 @@ public class SessionManager extends MapDataManager<String> {
         int responseCode = optResponse.get();
         if (responseCode != 200 && responseCode != 204) return;
         keepAliveSessionId = sessionId;
+    }
+
+    public JsonArray getSessionsByGame(Game game) {
+        if (this.map.isEmpty()) return new JsonArray();
+
+        JsonArray sessions = new JsonArray();
+        map.forEach((key, value) -> {
+            JsonObject session = value.getAsJsonObject();
+            if (!Util.jsonKeysPresent(session, "productId")) return;
+            String productId = session.get("productId").getAsString();
+            if (game.getInternalName().equals(productId)) {
+                sessions.add(session);
+            }
+        });
+
+        return sessions;
     }
 
     @Override
