@@ -22,19 +22,16 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.InputStream;
 import java.net.URL;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
 
 @Path("/v1")
 public class ValolyticsServletV1 {
 
+    private static final String KEY_ARES_DEPLOYMENT = "-ares-deployment=";
+
     private static final String  MAGIC_PLATFORM_STRING  = "ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9";
-    private static final Pattern REGION_EXTRACT_PATTERN = Pattern.compile("^https://shared\\.(\\w*)\\.a\\.pvp\\.net$");
 
     @Context
     private ServletContext context;
@@ -155,8 +152,8 @@ public class ValolyticsServletV1 {
         String deploymentRegion = null;
         for (JsonElement element : arguments) {
             String argument = element.getAsString();
-            if (!argument.startsWith("-ares-deployment=")) continue;
-            deploymentRegion = argument.substring("-ares-deployment=".length());
+            if (!argument.startsWith(KEY_ARES_DEPLOYMENT)) continue;
+            deploymentRegion = argument.substring(KEY_ARES_DEPLOYMENT.length());
         }
 
         if (deploymentRegion == null) {
